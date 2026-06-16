@@ -1,0 +1,27 @@
+services:
+  opsrelay-server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    environment:
+      OPSRELAY_SERVER_HOST: 0.0.0.0
+      OPSRELAY_SERVER_PORT: 3030
+      OPSRELAY_ADMIN_TOKEN: ${OPSRELAY_ADMIN_TOKEN}
+      OPSRELAY_LOG_LEVEL: ${OPSRELAY_LOG_LEVEL:-info}
+      OPSRELAY_DATABASE_URL: ${OPSRELAY_DATABASE_URL}
+    ports:
+      - "3030:3030"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opsrelay}
+      POSTGRES_USER: ${POSTGRES_USER:-opsrelay}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - opsrelay-postgres:/var/lib/postgresql/data
+
+volumes:
+  opsrelay-postgres:

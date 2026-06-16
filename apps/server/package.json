@@ -1,0 +1,30 @@
+{
+  "name": "@opsrelay/server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:migrate": "node -e \"console.log('SQL migrations are in apps/server/migrations; apply them with your PostgreSQL migration tool.')\""
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.0.2",
+    "@opsrelay/protocol": "workspace:*",
+    "fastify": "^5.3.3",
+    "pg": "^8.13.1",
+    "pino": "^9.7.0",
+    "tsx": "^4.19.4",
+    "ws": "^8.18.3",
+    "zod": "^3.25.64"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.2"
+  }
+}
