@@ -140,13 +140,21 @@ export OPSRELAY_ADMIN_TOKEN=<same-admin-token-as-server>
 pnpm dev:cli -- devices list --json
 ```
 
-Create an enrollment token:
+Create an enrollment token with one command after building the workspace:
 
 ```bash
-pnpm dev:cli -- enroll-token create --name client-pc-01 --json
+pnpm operator token client-pc-01 --json
 ```
 
 Give only the one-time enrollment token and server URL to the device owner.
+
+The administrator can also work directly on the server host, so only the server and client machines are involved. With the server's `OPSRELAY_ADMIN_TOKEN` in the shell environment, run `pnpm operator devices list --json` or `pnpm operator ps <device-id> "Get-Service Spooler" --json`. The CLI still calls the authenticated local server API and jobs are audited. For Docker deployment, run the bundled CLI inside the server container:
+
+```bash
+docker compose -f docker-compose.deploy.yml exec opsrelay-server node apps/admin-cli/dist/main.js token client-pc-01 --json
+docker compose -f docker-compose.deploy.yml exec opsrelay-server node apps/admin-cli/dist/main.js devices list --json
+docker compose -f docker-compose.deploy.yml exec opsrelay-server node apps/admin-cli/dist/main.js ps <device-id> "Get-Service Spooler" --json
+```
 
 ## Windows Client
 

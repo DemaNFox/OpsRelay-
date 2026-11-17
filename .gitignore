@@ -17,3 +17,5 @@ agent/*.json
 
 *.exe
 *.test
+
+.codex/orchestration/

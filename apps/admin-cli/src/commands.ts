@@ -13,11 +13,12 @@ export async function executeCommand(command: string[], options: CliOptions, con
   if (first === "device" && second === "info" && third !== undefined) {
     return api.get<Device>(`/v1/devices/${encodeURIComponent(third)}`);
   }
-  if (first === "enroll-token" && second === "create") {
-    if (options.name === null) {
-      throw new CliError("INVALID_ARGUMENTS", "enroll-token create requires --name", 2);
+  if ((first === "enroll-token" && second === "create") || first === "token") {
+    const name = first === "token" ? second : options.name;
+    if (name === undefined || name === null || name.trim() === "") {
+      throw new CliError("INVALID_ARGUMENTS", "token requires a device name", 2);
     }
-    return api.post("/v1/enrollment-tokens", { name: options.name });
+    return api.post("/v1/enrollment-tokens", { name });
   }
   if (first === "session" && second === "start" && third !== undefined) {
     if (options.name === null) {
@@ -120,6 +121,7 @@ export function usage(): string {
     "  opsrelay devices list [--json]",
     "  opsrelay device info <device-id> [--json]",
     "  opsrelay enroll-token create --name <name> [--json]",
+    "  opsrelay token <device-name> [--json]",
     "  opsrelay session start <device-id> --name <name> [--json]",
     "  opsrelay ps|cmd|sh <device-id> <command> [--session <id>] [--timeout <sec>] [--json] [--save]",
     "  opsrelay job status <job-id> [--json]",

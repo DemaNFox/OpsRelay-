@@ -11,7 +11,7 @@ try {
   $env:GOOS = "windows"
   $env:GOARCH = "amd64"
   if (Get-Command rsrc -ErrorAction SilentlyContinue) {
-    rsrc -manifest "cmd\opsrelay-agent\opsrelay-agent.exe.manifest" -o "cmd\opsrelay-agent\rsrc_windows_amd64.syso"
+    rsrc -manifest "cmd\opsrelay-agent\opsrelay-agent.exe.manifest" -ico "packaging\windows\opsrelay.ico" -o "cmd\opsrelay-agent\rsrc_windows_amd64.syso"
   } else {
     Write-Warning "rsrc was not found; GUI builds may fail to start without embedded Common Controls manifest."
   }

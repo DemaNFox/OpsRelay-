@@ -9,7 +9,8 @@
     "typecheck": "pnpm --filter @opsrelay/protocol build && pnpm -r typecheck",
     "test": "pnpm --filter @opsrelay/protocol build && pnpm -r test",
     "dev:server": "pnpm --filter @opsrelay/server dev",
-    "dev:cli": "pnpm --filter @opsrelay/admin-cli dev"
+    "dev:cli": "pnpm --filter @opsrelay/admin-cli dev",
+    "operator": "node apps/admin-cli/dist/main.js"
   },
   "engines": {
     "node": ">=22.0.0"

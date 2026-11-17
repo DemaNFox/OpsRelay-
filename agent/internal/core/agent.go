@@ -117,6 +117,7 @@ func (agent *Agent) runOnce(ctx context.Context) error {
 			if err := conn.WriteJSON(heartbeat); err != nil {
 				return err
 			}
+			agent.setStatus("heartbeat")
 		}
 	}
 }

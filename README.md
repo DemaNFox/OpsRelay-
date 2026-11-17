@@ -163,8 +163,31 @@ node apps/admin-cli/dist/main.js devices list --json
 Create a one-time enrollment token for a client:
 
 ```bash
-pnpm dev:cli -- enroll-token create --name client-pc-01 --json
+pnpm operator token client-pc-01 --json
 ```
+
+Run `pnpm build` first when using `pnpm operator`. The existing `enroll-token create --name` command remains available. The token appears once in the command output; pass it privately to the device owner.
+
+## Two-machine operator mode
+
+The operator CLI can run on the server host. This uses only the server and client machines while preserving the authenticated API, policy checks and audit trail. From the repository on the server host, with `OPSRELAY_ADMIN_TOKEN` set to the server's token:
+
+```bash
+pnpm build
+pnpm operator token client-pc-01 --json
+pnpm operator devices list --json
+pnpm operator ps <device-id> "Get-Service Spooler" --json
+```
+
+For the Docker deployment, the CLI is included in the server image and points to its local API:
+
+```bash
+docker compose -f docker-compose.deploy.yml exec opsrelay-server node apps/admin-cli/dist/main.js token client-pc-01 --json
+docker compose -f docker-compose.deploy.yml exec opsrelay-server node apps/admin-cli/dist/main.js devices list --json
+docker compose -f docker-compose.deploy.yml exec opsrelay-server node apps/admin-cli/dist/main.js ps <device-id> "Get-Service Spooler" --json
+```
+
+The original three-machine mode remains available by running the same CLI on a separate administrator PC. No inbound connection to the client is required.
 
 Give the client owner only:
 
@@ -196,7 +219,7 @@ Server URL
 Enrollment token
 Device name
 Device ID
-Status
+Color-coded connection status and last heartbeat time
 Server check
 ```
 
@@ -224,9 +247,9 @@ C:\ProgramData\OpsRelayAgent\prefs.json
 
 The enrollment token is not saved because it is a one-time secret.
 
-On later launches, the same exe finds the saved config, shows the Device ID, and auto-connects to the server. The administrator sees that device as `online` and can choose it from `devices list`.
+On later launches, the same exe finds the saved config, shows the Device ID and asks the device owner whether to connect. Choosing Yes starts the connection; choosing No leaves the window ready for the "Connect with saved config" button. The administrator sees the device as `online` only while connected.
 
-The `Status` field shows agent state such as `connecting`, `connected`, `reconnecting` or `stopped`. The `Server check` field and button show whether `/health` is reachable before enrollment or reconnect.
+The colored dot and status text distinguish connected (green), connecting/retrying (amber), disconnected (gray) and error (red). While connected, the activity line refreshes after each heartbeat. The `Server check` field and button show whether `/health` is reachable before enrollment or reconnect. The window uses the OpsRelay icon in the executable and taskbar.
 
 For technical debugging, build a console variant:
 

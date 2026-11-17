@@ -21,17 +21,21 @@ import (
 )
 
 type guiState struct {
-	window      *walk.MainWindow
-	serverEdit  *walk.LineEdit
-	tokenEdit   *walk.LineEdit
-	nameEdit    *walk.LineEdit
-	deviceEdit  *walk.LineEdit
-	statusLabel *walk.Label
-	serverLabel *walk.Label
-	connectBtn  *walk.PushButton
-	stopBtn     *walk.PushButton
-	cancel      context.CancelFunc
-	logger      *slog.Logger
+	window        *walk.MainWindow
+	serverEdit    *walk.LineEdit
+	tokenEdit     *walk.LineEdit
+	nameEdit      *walk.LineEdit
+	deviceEdit    *walk.LineEdit
+	statusLabel   *walk.Label
+	statusDot     *walk.Label
+	activityLabel *walk.Label
+	serverLabel   *walk.Label
+	connectBtn    *walk.PushButton
+	savedBtn      *walk.PushButton
+	stopBtn       *walk.PushButton
+	cancel        context.CancelFunc
+	runID         uint64
+	logger        *slog.Logger
 }
 
 func runWindowsGUI(logger *slog.Logger) error {
@@ -69,13 +73,17 @@ func runWindowsGUI(logger *slog.Logger) error {
 	_, err := MainWindow{
 		AssignTo: &state.window,
 		Title:    "OpsRelay Agent",
-		Size:     Size{Width: 560, Height: 345},
-		MinSize:  Size{Width: 560, Height: 345},
-		MaxSize:  Size{Width: 560, Height: 345},
+		Size:     Size{Width: 600, Height: 400},
+		MinSize:  Size{Width: 600, Height: 400},
 		Layout:   VBox{MarginsZero: false},
 		Children: []Widget{
-			Label{Text: "OpsRelay Agent"},
-			Label{Text: "This device is visible to the administrator only after enrollment and connection."},
+			Label{Text: "OpsRelay  ·  Device connection", Font: Font{PointSize: 15, Bold: true}},
+			Label{Text: "Your administrator can connect only while this window is open."},
+			Composite{Layout: HBox{}, Children: []Widget{
+				Label{AssignTo: &state.statusDot, Text: "●", Font: Font{PointSize: 20}, TextColor: statusColor(initialStatus(hasConfig))},
+				Label{AssignTo: &state.statusLabel, Text: friendlyStatus(initialStatus(hasConfig)), Font: Font{PointSize: 12, Bold: true}},
+			}},
+			Label{AssignTo: &state.activityLabel, Text: statusActivity(initialStatus(hasConfig))},
 			Composite{
 				Layout: Grid{Columns: 2},
 				Children: []Widget{
@@ -99,8 +107,6 @@ func runWindowsGUI(logger *slog.Logger) error {
 					},
 					Label{Text: "Device ID"},
 					LineEdit{AssignTo: &state.deviceEdit, Text: deviceID, ReadOnly: true},
-					Label{Text: "Status"},
-					Label{AssignTo: &state.statusLabel, Text: initialStatus(hasConfig)},
 					Label{Text: "Server check"},
 					Label{AssignTo: &state.serverLabel, Text: "not checked"},
 				},
@@ -116,7 +122,9 @@ func runWindowsGUI(logger *slog.Logger) error {
 						},
 					},
 					PushButton{
-						Text: "Connect with saved config",
+						Text:     "Connect with saved config",
+						AssignTo: &state.savedBtn,
+						Enabled:  hasConfig,
 						OnClicked: func() {
 							state.connectSaved(cfgPath)
 						},
@@ -137,16 +145,19 @@ func runWindowsGUI(logger *slog.Logger) error {
 					},
 				},
 			},
-			Label{Text: "Keep this window open while the administrator is connected. Closing it stops the MVP agent."},
+			Label{Text: "You can stop the connection at any time. Closing this window also disconnects."},
 		},
 	}.Run()
+	if state.cancel != nil {
+		state.cancel()
+	}
 	return err
 }
 
 func (state *guiState) enrollAndConnect(cfgPath string) {
-	serverURL := state.serverEdit.Text()
-	token := state.tokenEdit.Text()
-	name := state.nameEdit.Text()
+	serverURL := strings.TrimSpace(state.serverEdit.Text())
+	token := strings.TrimSpace(state.tokenEdit.Text())
+	name := strings.TrimSpace(state.nameEdit.Text())
 	if serverURL == "" || token == "" || name == "" {
 		state.showError("Server URL, enrollment token and device name are required.")
 		return
@@ -155,8 +166,15 @@ func (state *guiState) enrollAndConnect(cfgPath string) {
 
 	state.setStatus("enrolling")
 	state.setServerStatus("checking")
+	state.connectBtn.SetEnabled(false)
+	go state.finishEnrollment(cfgPath, serverURL, token, name)
+}
+
+func (state *guiState) finishEnrollment(cfgPath, serverURL, token, name string) {
 	client := transport.NewClient(serverURL)
-	cfg, err := client.Enroll(context.Background(), transport.EnrollRequest{
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cfg, err := client.Enroll(ctx, transport.EnrollRequest{
 		Token:           token,
 		Name:            name,
 		OS:              platform.OSInfo(),
@@ -165,23 +183,31 @@ func (state *guiState) enrollAndConnect(cfgPath string) {
 		Capabilities:    platform.Capabilities(),
 	})
 	if err != nil {
-		state.setStatus("enrollment failed")
-		state.setServerStatus("reachable, enrollment failed")
-		state.showError(err.Error())
+		state.window.Synchronize(func() {
+			state.setStatus("enrollment failed")
+			state.setServerStatus("enrollment failed")
+			state.connectBtn.SetEnabled(true)
+			state.showError(err.Error())
+		})
 		return
 	}
 	cfg.ServerURL = serverURL
 	cfg.Name = name
 	if err := config.Save(cfgPath, cfg); err != nil {
-		state.setStatus("config save failed")
-		state.showError(err.Error())
+		state.window.Synchronize(func() {
+			state.setStatus("config save failed")
+			state.connectBtn.SetEnabled(true)
+			state.showError(err.Error())
+		})
 		return
 	}
-	state.deviceEdit.SetText(cfg.DeviceID)
-	state.tokenEdit.SetText("")
-	state.savePrefs(config.DefaultPrefsPath())
-	state.setServerStatus("reachable")
-	state.startAgent(cfg)
+	state.window.Synchronize(func() {
+		state.deviceEdit.SetText(cfg.DeviceID)
+		state.tokenEdit.SetText("")
+		state.savedBtn.SetEnabled(true)
+		state.setServerStatus("reachable")
+		state.startAgent(cfg)
+	})
 }
 
 func (state *guiState) connectSaved(cfgPath string) {
@@ -201,16 +227,22 @@ func (state *guiState) waitAndConnectSaved(cfgPath string) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	state.window.Synchronize(func() {
-		state.connectSaved(cfgPath)
+		if walk.MsgBox(state.window, "OpsRelay connection", "Allow this device to connect to the OpsRelay server now? You can stop it at any time.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes {
+			state.connectSaved(cfgPath)
+		}
 	})
 }
 
 func (state *guiState) startAgent(cfg config.Config) {
 	state.stop()
+	state.runID++
+	runID := state.runID
 	ctx, cancel := context.WithCancel(context.Background())
 	state.cancel = cancel
 	state.connectBtn.SetEnabled(false)
+	state.savedBtn.SetEnabled(false)
 	state.stopBtn.SetEnabled(true)
+	state.setStatus("connecting")
 
 	runner := core.NewAgent(
 		cfg,
@@ -222,20 +254,30 @@ func (state *guiState) startAgent(cfg config.Config) {
 		state.logger,
 	)
 	runner.SetStatusHandler(func(status string) {
-		state.setStatus(status)
-		if status == "connected" {
-			state.setServerStatus("reachable")
-		}
-		if status == "reconnecting" {
-			state.setServerStatus("connection lost")
-		}
+		state.window.Synchronize(func() {
+			if state.runID != runID {
+				return
+			}
+			state.setStatus(status)
+			if status == "connected" || status == "heartbeat" {
+				state.setServerStatus("reachable")
+			}
+			if status == "reconnecting" {
+				state.setServerStatus("connection lost")
+			}
+		})
 	})
 
 	go func() {
 		err := runner.Run(ctx)
 		if err != nil && ctx.Err() == nil {
-			state.setStatus("stopped with error")
-			state.showError(err.Error())
+			state.window.Synchronize(func() {
+				if state.runID != runID {
+					return
+				}
+				state.setStatus("stopped with error")
+				state.showError(err.Error())
+			})
 		}
 	}()
 }
@@ -277,12 +319,16 @@ func (state *guiState) savePrefs(path string) {
 }
 
 func (state *guiState) stop() {
+	state.runID++
 	if state.cancel != nil {
 		state.cancel()
 		state.cancel = nil
 	}
 	if state.connectBtn != nil {
 		state.connectBtn.SetEnabled(true)
+	}
+	if state.savedBtn != nil {
+		state.savedBtn.SetEnabled(state.deviceEdit != nil && state.deviceEdit.Text() != "not enrolled")
 	}
 	if state.stopBtn != nil {
 		state.stopBtn.SetEnabled(false)
@@ -291,12 +337,77 @@ func (state *guiState) stop() {
 }
 
 func (state *guiState) setStatus(status string) {
-	if state.window == nil || state.statusLabel == nil {
+	if state.window == nil || state.statusLabel == nil || state.statusDot == nil {
 		return
 	}
 	state.window.Synchronize(func() {
-		state.statusLabel.SetText(status)
+		state.statusLabel.SetText(friendlyStatus(status))
+		state.statusDot.SetTextColor(statusColor(status))
+		if state.activityLabel != nil {
+			state.activityLabel.SetText(statusActivity(status))
+		}
 	})
+}
+
+func friendlyStatus(status string) string {
+	switch status {
+	case "connected", "heartbeat":
+		return "Connected"
+	case "connecting":
+		return "Connecting…"
+	case "reconnecting":
+		return "Connection lost — retrying…"
+	case "enrolling":
+		return "Enrolling device…"
+	case "enrollment failed":
+		return "Enrollment failed"
+	case "config save failed":
+		return "Could not save device settings"
+	case "saved config found":
+		return "Ready to connect"
+	case "not enrolled":
+		return "Enrollment needed"
+	case "stopped with error":
+		return "Connection stopped with error"
+	default:
+		return "Disconnected"
+	}
+}
+
+func statusColor(status string) walk.Color {
+	switch status {
+	case "connected", "heartbeat":
+		return walk.RGB(38, 165, 81)
+	case "connecting", "enrolling", "reconnecting":
+		return walk.RGB(229, 151, 30)
+	case "enrollment failed", "config save failed", "stopped with error":
+		return walk.RGB(200, 58, 58)
+	default:
+		return walk.RGB(140, 150, 160)
+	}
+}
+
+func statusActivity(status string) string {
+	switch status {
+	case "connected":
+		return "Connection established. Waiting for administrator requests."
+	case "heartbeat":
+		return "Connection active · last heartbeat sent " + time.Now().Format("15:04:05")
+	case "connecting":
+		return "Contacting server…"
+	case "reconnecting":
+		return "Trying again automatically. Check your network or server URL."
+	case "enrolling":
+		return "Registering this device with the server…"
+	case "enrollment failed":
+		return "Check the server URL and one-time token, then retry."
+	case "saved config found":
+		return "Saved device found. Choose Connect to allow a session."
+	case "not enrolled":
+		return "Enter the server URL and one-time token to get started."
+	default:
+		return "The administrator cannot reach this device while disconnected."
+	}
 }
 
 func (state *guiState) setServerStatus(status string) {
