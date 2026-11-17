@@ -1,7 +1,7 @@
 {
   "name": "opsrelay",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Authorized remote administration MVP with server, admin CLI and Go client agent.",
   "packageManager": "pnpm@10.33.2",
   "scripts": {

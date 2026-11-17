@@ -1,7 +1,7 @@
 package core
 
 const ProtocolVersion = "0.1.0"
-const AgentVersion = "0.1.0"
+const AgentVersion = "0.2.0"
 
 type OSInfo struct {
 	Type    string `json:"type"`
