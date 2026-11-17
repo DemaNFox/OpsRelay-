@@ -7,7 +7,7 @@ The GUI exe is intended for a normal user:
 ```text
 1. User double-clicks the exe.
 2. User enters server URL and one-time enrollment token.
-3. User clicks Enroll and connect.
+3. User clicks "Зарегистрировать и подключить".
 4. Window displays Device ID, a colored connection indicator and the time of the last sent heartbeat.
 5. Administrator sees the device as online and selects it from the CLI.
 ```

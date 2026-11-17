@@ -212,7 +212,7 @@ This creates:
 agent\dist\opsrelay-agent-windows-amd64.exe
 ```
 
-This is the normal user-facing GUI build. When a client double-clicks it, a small OpsRelay Agent window opens. The window shows:
+This is the user-facing Windows GUI build. It uses a three-section layout with connection status first, device settings second and connection controls below. The Russian-language window shows:
 
 ```text
 Server URL
@@ -229,7 +229,7 @@ First launch on a new client:
 1. Enter the server URL.
 2. Paste the one-time enrollment token.
 3. Confirm or edit the device name.
-4. Click "Enroll and connect".
+4. Click "Зарегистрировать и подключить".
 5. Keep the window open while support is connected.
 ```
 
@@ -247,7 +247,7 @@ C:\ProgramData\OpsRelayAgent\prefs.json
 
 The enrollment token is not saved because it is a one-time secret.
 
-On later launches, the same exe finds the saved config, shows the Device ID and asks the device owner whether to connect. Choosing Yes starts the connection; choosing No leaves the window ready for the "Connect with saved config" button. The administrator sees the device as `online` only while connected.
+On later launches, the same exe finds the saved config, shows the Device ID and asks the device owner whether to connect. Choosing Yes starts the connection; choosing No leaves the window ready for the "Подключить сохранённое" button. The administrator sees the device as `online` only while connected.
 
 The colored dot and status text distinguish connected (green), connecting/retrying (amber), disconnected (gray) and error (red). While connected, the activity line refreshes after each heartbeat. The `Server check` field and button show whether `/health` is reachable before enrollment or reconnect. The window uses the OpsRelay icon in the executable and taskbar.
 

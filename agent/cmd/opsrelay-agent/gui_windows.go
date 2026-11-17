@@ -20,6 +20,8 @@ import (
 	"github.com/opsrelay/agent/internal/transport"
 )
 
+const unregisteredDeviceID = "не зарегистрировано"
+
 type guiState struct {
 	window        *walk.MainWindow
 	serverEdit    *walk.LineEdit
@@ -46,7 +48,7 @@ func runWindowsGUI(logger *slog.Logger) error {
 	prefs, hasPrefs := loadPrefs(prefsPath)
 
 	serverURL := "https://opsrelay.example.com"
-	deviceID := "not enrolled"
+	deviceID := unregisteredDeviceID
 	deviceName := os.Getenv("COMPUTERNAME")
 	if hasConfig {
 		serverURL = existing.ServerURL
@@ -71,81 +73,75 @@ func runWindowsGUI(logger *slog.Logger) error {
 	}()
 
 	_, err := MainWindow{
-		AssignTo: &state.window,
-		Title:    "OpsRelay Agent",
-		Size:     Size{Width: 600, Height: 400},
-		MinSize:  Size{Width: 600, Height: 400},
-		Layout:   VBox{MarginsZero: false},
+		AssignTo:   &state.window,
+		Title:      "OpsRelay Agent",
+		Size:       Size{Width: 760, Height: 640},
+		MinSize:    Size{Width: 700, Height: 600},
+		Font:       Font{Family: "Segoe UI", PointSize: 10},
+		Background: SolidColorBrush{Color: walk.RGB(244, 247, 250)},
+		Layout:     VBox{Margins: Margins{Left: 18, Top: 18, Right: 18, Bottom: 18}, Spacing: 12},
 		Children: []Widget{
-			Label{Text: "OpsRelay  ·  Device connection", Font: Font{PointSize: 15, Bold: true}},
-			Label{Text: "Your administrator can connect only while this window is open."},
-			Composite{Layout: HBox{}, Children: []Widget{
-				Label{AssignTo: &state.statusDot, Text: "●", Font: Font{PointSize: 20}, TextColor: statusColor(initialStatus(hasConfig))},
-				Label{AssignTo: &state.statusLabel, Text: friendlyStatus(initialStatus(hasConfig)), Font: Font{PointSize: 12, Bold: true}},
+			Composite{
+				Background: SolidColorBrush{Color: walk.RGB(24, 50, 75)},
+				Layout:     VBox{Margins: Margins{Left: 22, Top: 17, Right: 22, Bottom: 17}, Spacing: 5},
+				MinSize:    Size{Height: 94},
+				Children: []Widget{
+					Label{Text: "●   OPSRELAY", Font: Font{Family: "Segoe UI", PointSize: 17, Bold: true}, TextColor: walk.RGB(78, 226, 160)},
+					Label{Text: "Удалённая поддержка с вашего разрешения", TextColor: walk.RGB(221, 234, 244)},
+				},
+			},
+			Composite{
+				Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
+				Border:     true,
+				Layout:     VBox{Margins: Margins{Left: 20, Top: 15, Right: 20, Bottom: 15}, Spacing: 7},
+				MinSize:    Size{Height: 134},
+				Children: []Widget{
+					Label{Text: "СОСТОЯНИЕ ПОДКЛЮЧЕНИЯ", Font: Font{Family: "Segoe UI", PointSize: 8, Bold: true}, TextColor: walk.RGB(102, 119, 135)},
+					Composite{Layout: HBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
+						Label{AssignTo: &state.statusDot, Text: "●", Font: Font{Family: "Segoe UI", PointSize: 22}, TextColor: statusColor(initialStatus(hasConfig))},
+						Label{AssignTo: &state.statusLabel, Text: friendlyStatus(initialStatus(hasConfig)), Font: Font{Family: "Segoe UI", PointSize: 14, Bold: true}, TextColor: walk.RGB(24, 50, 75)},
+					}},
+					Label{AssignTo: &state.activityLabel, Text: statusActivity(initialStatus(hasConfig)), TextColor: walk.RGB(84, 101, 117)},
+				},
+			},
+			Composite{
+				Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
+				Border:     true,
+				Layout:     VBox{Margins: Margins{Left: 20, Top: 16, Right: 20, Bottom: 16}, Spacing: 10},
+				Children: []Widget{
+					Label{Text: "Настройки устройства", Font: Font{Family: "Segoe UI", PointSize: 12, Bold: true}, TextColor: walk.RGB(24, 50, 75)},
+					Label{Text: "Для первого подключения введите адрес сервера и одноразовый токен.", TextColor: walk.RGB(84, 101, 117)},
+					Composite{Layout: Grid{Columns: 2, MarginsZero: true, Spacing: 12}, Children: []Widget{
+						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "Адрес сервера"},
+							LineEdit{AssignTo: &state.serverEdit, Text: serverURL, OnTextChanged: func() { state.savePrefs(prefsPath) }},
+						}},
+						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "Имя устройства"},
+							LineEdit{AssignTo: &state.nameEdit, Text: deviceName, OnTextChanged: func() { state.savePrefs(prefsPath) }},
+						}},
+						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "Одноразовый токен"},
+							LineEdit{AssignTo: &state.tokenEdit, PasswordMode: true},
+						}},
+						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "ID устройства"},
+							LineEdit{AssignTo: &state.deviceEdit, Text: deviceID, ReadOnly: true},
+						}},
+					}},
+					Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+						Label{Text: "Сервер:", TextColor: walk.RGB(84, 101, 117)},
+						Label{AssignTo: &state.serverLabel, Text: "не проверен", TextColor: walk.RGB(84, 101, 117)},
+						PushButton{Text: "Проверить сервер", OnClicked: func() { state.checkServer() }},
+					}},
+				},
+			},
+			Composite{Layout: HBox{MarginsZero: true, Spacing: 10}, Children: []Widget{
+				PushButton{Text: "Зарегистрировать и подключить", AssignTo: &state.connectBtn, MinSize: Size{Width: 230, Height: 38}, Font: Font{Family: "Segoe UI", PointSize: 10, Bold: true}, OnClicked: func() { state.enrollAndConnect(cfgPath) }},
+				PushButton{Text: "Подключить сохранённое", AssignTo: &state.savedBtn, Enabled: hasConfig, MinSize: Size{Width: 210, Height: 38}, OnClicked: func() { state.connectSaved(cfgPath) }},
+				PushButton{Text: "Отключить", AssignTo: &state.stopBtn, Enabled: false, MinSize: Size{Width: 110, Height: 38}, OnClicked: func() { state.stop() }},
 			}},
-			Label{AssignTo: &state.activityLabel, Text: statusActivity(initialStatus(hasConfig))},
-			Composite{
-				Layout: Grid{Columns: 2},
-				Children: []Widget{
-					Label{Text: "Server URL"},
-					LineEdit{
-						AssignTo: &state.serverEdit,
-						Text:     serverURL,
-						OnTextChanged: func() {
-							state.savePrefs(prefsPath)
-						},
-					},
-					Label{Text: "Enrollment token"},
-					LineEdit{AssignTo: &state.tokenEdit, PasswordMode: true},
-					Label{Text: "Device name"},
-					LineEdit{
-						AssignTo: &state.nameEdit,
-						Text:     deviceName,
-						OnTextChanged: func() {
-							state.savePrefs(prefsPath)
-						},
-					},
-					Label{Text: "Device ID"},
-					LineEdit{AssignTo: &state.deviceEdit, Text: deviceID, ReadOnly: true},
-					Label{Text: "Server check"},
-					Label{AssignTo: &state.serverLabel, Text: "not checked"},
-				},
-			},
-			Composite{
-				Layout: HBox{},
-				Children: []Widget{
-					PushButton{
-						Text:     "Enroll and connect",
-						AssignTo: &state.connectBtn,
-						OnClicked: func() {
-							state.enrollAndConnect(cfgPath)
-						},
-					},
-					PushButton{
-						Text:     "Connect with saved config",
-						AssignTo: &state.savedBtn,
-						Enabled:  hasConfig,
-						OnClicked: func() {
-							state.connectSaved(cfgPath)
-						},
-					},
-					PushButton{
-						Text: "Check server",
-						OnClicked: func() {
-							state.checkServer()
-						},
-					},
-					PushButton{
-						Text:     "Stop",
-						AssignTo: &state.stopBtn,
-						Enabled:  false,
-						OnClicked: func() {
-							state.stop()
-						},
-					},
-				},
-			},
-			Label{Text: "You can stop the connection at any time. Closing this window also disconnects."},
+			Label{Text: "Вы можете отключиться в любой момент. Закрытие окна тоже прерывает соединение.", TextColor: walk.RGB(84, 101, 117)},
 		},
 	}.Run()
 	if state.cancel != nil {
@@ -159,7 +155,7 @@ func (state *guiState) enrollAndConnect(cfgPath string) {
 	token := strings.TrimSpace(state.tokenEdit.Text())
 	name := strings.TrimSpace(state.nameEdit.Text())
 	if serverURL == "" || token == "" || name == "" {
-		state.showError("Server URL, enrollment token and device name are required.")
+		state.showError("Укажите адрес сервера, одноразовый токен и имя устройства.")
 		return
 	}
 	state.savePrefs(config.DefaultPrefsPath())
@@ -167,6 +163,8 @@ func (state *guiState) enrollAndConnect(cfgPath string) {
 	state.setStatus("enrolling")
 	state.setServerStatus("checking")
 	state.connectBtn.SetEnabled(false)
+	state.savedBtn.SetEnabled(false)
+	state.setInputsEnabled(false)
 	go state.finishEnrollment(cfgPath, serverURL, token, name)
 }
 
@@ -187,6 +185,8 @@ func (state *guiState) finishEnrollment(cfgPath, serverURL, token, name string) 
 			state.setStatus("enrollment failed")
 			state.setServerStatus("enrollment failed")
 			state.connectBtn.SetEnabled(true)
+			state.savedBtn.SetEnabled(state.deviceEdit.Text() != unregisteredDeviceID)
+			state.setInputsEnabled(true)
 			state.showError(err.Error())
 		})
 		return
@@ -197,6 +197,8 @@ func (state *guiState) finishEnrollment(cfgPath, serverURL, token, name string) 
 		state.window.Synchronize(func() {
 			state.setStatus("config save failed")
 			state.connectBtn.SetEnabled(true)
+			state.savedBtn.SetEnabled(state.deviceEdit.Text() != unregisteredDeviceID)
+			state.setInputsEnabled(true)
 			state.showError(err.Error())
 		})
 		return
@@ -213,7 +215,7 @@ func (state *guiState) finishEnrollment(cfgPath, serverURL, token, name string) 
 func (state *guiState) connectSaved(cfgPath string) {
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		state.showError(fmt.Sprintf("Saved config was not found or is invalid: %s", err.Error()))
+		state.showError(fmt.Sprintf("Сохранённые настройки не найдены или повреждены: %s", err.Error()))
 		return
 	}
 	state.serverEdit.SetText(cfg.ServerURL)
@@ -227,7 +229,7 @@ func (state *guiState) waitAndConnectSaved(cfgPath string) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	state.window.Synchronize(func() {
-		if walk.MsgBox(state.window, "OpsRelay connection", "Allow this device to connect to the OpsRelay server now? You can stop it at any time.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes {
+		if walk.MsgBox(state.window, "Подключение OpsRelay", "Разрешить подключение этого устройства сейчас? Вы сможете отключить его в любой момент.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes {
 			state.connectSaved(cfgPath)
 		}
 	})
@@ -242,6 +244,7 @@ func (state *guiState) startAgent(cfg config.Config) {
 	state.connectBtn.SetEnabled(false)
 	state.savedBtn.SetEnabled(false)
 	state.stopBtn.SetEnabled(true)
+	state.setInputsEnabled(false)
 	state.setStatus("connecting")
 
 	runner := core.NewAgent(
@@ -328,12 +331,21 @@ func (state *guiState) stop() {
 		state.connectBtn.SetEnabled(true)
 	}
 	if state.savedBtn != nil {
-		state.savedBtn.SetEnabled(state.deviceEdit != nil && state.deviceEdit.Text() != "not enrolled")
+		state.savedBtn.SetEnabled(state.deviceEdit != nil && state.deviceEdit.Text() != unregisteredDeviceID)
 	}
 	if state.stopBtn != nil {
 		state.stopBtn.SetEnabled(false)
 	}
+	state.setInputsEnabled(true)
 	state.setStatus("stopped")
+}
+
+func (state *guiState) setInputsEnabled(enabled bool) {
+	for _, field := range []*walk.LineEdit{state.serverEdit, state.nameEdit, state.tokenEdit} {
+		if field != nil {
+			field.SetEnabled(enabled)
+		}
+	}
 }
 
 func (state *guiState) setStatus(status string) {
@@ -352,25 +364,25 @@ func (state *guiState) setStatus(status string) {
 func friendlyStatus(status string) string {
 	switch status {
 	case "connected", "heartbeat":
-		return "Connected"
+		return "Подключено"
 	case "connecting":
-		return "Connecting…"
+		return "Подключаемся…"
 	case "reconnecting":
-		return "Connection lost — retrying…"
+		return "Связь потеряна — повторяем…"
 	case "enrolling":
-		return "Enrolling device…"
+		return "Регистрируем устройство…"
 	case "enrollment failed":
-		return "Enrollment failed"
+		return "Ошибка регистрации"
 	case "config save failed":
-		return "Could not save device settings"
+		return "Не удалось сохранить настройки"
 	case "saved config found":
-		return "Ready to connect"
+		return "Готово к подключению"
 	case "not enrolled":
-		return "Enrollment needed"
+		return "Нужна регистрация"
 	case "stopped with error":
-		return "Connection stopped with error"
+		return "Соединение остановлено из-за ошибки"
 	default:
-		return "Disconnected"
+		return "Отключено"
 	}
 }
 
@@ -390,23 +402,23 @@ func statusColor(status string) walk.Color {
 func statusActivity(status string) string {
 	switch status {
 	case "connected":
-		return "Connection established. Waiting for administrator requests."
+		return "Соединение установлено. Ожидаем запросы администратора."
 	case "heartbeat":
-		return "Connection active · last heartbeat sent " + time.Now().Format("15:04:05")
+		return "Связь активна · последний сигнал отправлен в " + time.Now().Format("15:04:05")
 	case "connecting":
-		return "Contacting server…"
+		return "Связываемся с сервером…"
 	case "reconnecting":
-		return "Trying again automatically. Check your network or server URL."
+		return "Повторим попытку автоматически. Проверьте сеть и адрес сервера."
 	case "enrolling":
-		return "Registering this device with the server…"
+		return "Регистрируем устройство на сервере…"
 	case "enrollment failed":
-		return "Check the server URL and one-time token, then retry."
+		return "Проверьте адрес сервера и одноразовый токен, затем повторите."
 	case "saved config found":
-		return "Saved device found. Choose Connect to allow a session."
+		return "Настройки найдены. Разрешите подключение, когда будете готовы."
 	case "not enrolled":
-		return "Enter the server URL and one-time token to get started."
+		return "Введите адрес сервера и одноразовый токен для первого подключения."
 	default:
-		return "The administrator cannot reach this device while disconnected."
+		return "Пока устройство отключено, администратор не может к нему обратиться."
 	}
 }
 
@@ -415,8 +427,27 @@ func (state *guiState) setServerStatus(status string) {
 		return
 	}
 	state.window.Synchronize(func() {
-		state.serverLabel.SetText(status)
+		state.serverLabel.SetText(friendlyServerStatus(status))
 	})
+}
+
+func friendlyServerStatus(status string) string {
+	switch status {
+	case "checking":
+		return "проверяем…"
+	case "reachable":
+		return "доступен"
+	case "connection lost":
+		return "связь потеряна"
+	case "not reachable":
+		return "не отвечает"
+	case "missing server URL":
+		return "укажите адрес"
+	case "enrollment failed":
+		return "регистрация не удалась"
+	default:
+		return status
+	}
 }
 
 func (state *guiState) showError(message string) {
@@ -424,7 +455,7 @@ func (state *guiState) showError(message string) {
 		return
 	}
 	state.window.Synchronize(func() {
-		walk.MsgBox(state.window, "OpsRelay Agent", message, walk.MsgBoxIconError)
+		walk.MsgBox(state.window, "OpsRelay · Ошибка", message, walk.MsgBoxIconError)
 	})
 }
 

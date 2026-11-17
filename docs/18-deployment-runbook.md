@@ -174,11 +174,11 @@ Normal user flow:
 2. Enter server URL.
 3. Paste the one-time enrollment token.
 4. Confirm the device name.
-5. Click "Enroll and connect".
+5. Click "Зарегистрировать и подключить".
 6. Keep the window open while the administrator works.
 ```
 
-The window shows Device ID, agent connection status and server health status. After the first enrollment, future double-click launches auto-connect with the saved config.
+The window shows Device ID, a colored connection status and server health status. On later launches, the owner is asked whether to connect using the saved config; declining leaves the manual "Подключить сохранённое" button available.
 
 Technical console flow:
 
