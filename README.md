@@ -212,7 +212,7 @@ This creates:
 agent\dist\opsrelay-agent-windows-amd64.exe
 ```
 
-This is the user-facing Windows GUI build. Its compact 620 × 460 window uses a dark blue palette with mint accents, short status messages and closely spaced sections. Actions and inline error messages use the same palette. The Russian-language window shows:
+This is the user-facing Windows GUI build. Its compact 620 × 410 window uses a dark blue palette with mint accents, short status messages and closely spaced sections. The title bar carries the app name; the green dot is reserved for connection status. Actions and inline error messages use the same palette. The Russian-language window shows:
 
 ```text
 Server URL

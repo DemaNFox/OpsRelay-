@@ -93,21 +93,13 @@ func runWindowsGUI(logger *slog.Logger) error {
 		AssignTo:   &state.window,
 		Title:      "OpsRelay Agent",
 		Icon:       windowIcon,
-		Size:       Size{Width: 620, Height: 460},
-		MinSize:    Size{Width: 620, Height: 460},
-		MaxSize:    Size{Width: 620, Height: 460},
+		Size:       Size{Width: 620, Height: 410},
+		MinSize:    Size{Width: 620, Height: 410},
+		MaxSize:    Size{Width: 620, Height: 410},
 		Font:       Font{Family: "Segoe UI", PointSize: 9},
 		Background: SolidColorBrush{Color: themeBackground},
 		Layout:     VBox{Margins: Margins{Left: 12, Top: 12, Right: 12, Bottom: 12}, Spacing: 8},
 		Children: []Widget{
-			Composite{
-				Background: SolidColorBrush{Color: themeSurface},
-				Layout:     VBox{Margins: Margins{Left: 14, Top: 9, Right: 14, Bottom: 9}},
-				MinSize:    Size{Width: 580, Height: 48},
-				Children: []Widget{
-					Label{Text: "●  OPSRELAY", Font: Font{Family: "Segoe UI", PointSize: 14, Bold: true}, TextColor: themeMint},
-				},
-			},
 			Composite{
 				Background: SolidColorBrush{Color: themeSurface},
 				Layout:     VBox{Margins: Margins{Left: 14, Top: 9, Right: 14, Bottom: 9}, Spacing: 3},
