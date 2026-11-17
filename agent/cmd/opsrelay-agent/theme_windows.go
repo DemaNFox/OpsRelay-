@@ -21,7 +21,7 @@ func themedButton(assign **walk.CustomWidget, label string, size Size, base, fil
 		Visible:       visible,
 		Background:    SolidColorBrush{Color: base},
 		Style:         uint32(win.WS_TABSTOP),
-		Font:          Font{Family: "Segoe UI", PointSize: 10, Bold: true},
+		Font:          Font{Family: "Segoe UI", PointSize: 9, Bold: true},
 		Accessibility: Accessibility{Name: label, Role: AccRolePushbutton, DefaultAction: "Нажать", State: AccStateFocusable},
 		PaintMode:     PaintBuffered,
 		PaintPixels: func(canvas *walk.Canvas, _ walk.Rectangle) error {
