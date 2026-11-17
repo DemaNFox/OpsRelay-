@@ -178,7 +178,7 @@ Normal user flow:
 6. Keep the window open while the administrator works.
 ```
 
-The window shows Device ID, a colored connection status and server health status. On later launches, the owner is asked whether to connect using the saved config; declining leaves the manual "Подключить сохранённое" button available.
+The window shows Device ID, a colored connection status and server health status. On later launches, the owner sees "Подключиться сейчас?" and can start the saved connection with "Подключить сохранённое".
 
 Technical console flow:
 

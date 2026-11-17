@@ -22,6 +22,15 @@ import (
 
 const unregisteredDeviceID = "не зарегистрировано"
 
+var (
+	themeBackground = walk.RGB(13, 34, 51)
+	themeSurface    = walk.RGB(24, 50, 75)
+	themeInput      = walk.RGB(44, 78, 102)
+	themeText       = walk.RGB(232, 245, 250)
+	themeMuted      = walk.RGB(167, 195, 210)
+	themeMint       = walk.RGB(78, 226, 160)
+)
+
 type guiState struct {
 	window        *walk.MainWindow
 	serverEdit    *walk.LineEdit
@@ -32,9 +41,9 @@ type guiState struct {
 	statusDot     *walk.Label
 	activityLabel *walk.Label
 	serverLabel   *walk.Label
-	connectBtn    *walk.PushButton
-	savedBtn      *walk.PushButton
-	stopBtn       *walk.PushButton
+	connectBtn    *walk.CustomWidget
+	savedBtn      *walk.CustomWidget
+	stopBtn       *walk.CustomWidget
 	cancel        context.CancelFunc
 	runID         uint64
 	logger        *slog.Logger
@@ -42,6 +51,20 @@ type guiState struct {
 
 func runWindowsGUI(logger *slog.Logger) error {
 	state := &guiState{logger: logger}
+	var checkBtn *walk.CustomWidget
+	icon, iconErr := walk.NewIconFromResourceId(1)
+	if iconErr != nil {
+		if exePath, err := os.Executable(); err == nil {
+			icon, iconErr = walk.NewIconExtractedFromFileWithSize(exePath, 0, 32)
+		}
+	}
+	var windowIcon interface{}
+	if iconErr != nil {
+		logger.Warn("window icon unavailable", slog.String("error", iconErr.Error()))
+	} else {
+		windowIcon = icon
+		defer icon.Dispose()
+	}
 	cfgPath := config.DefaultPath()
 	prefsPath := config.DefaultPrefsPath()
 	existing, hasConfig := loadExistingConfig(cfgPath)
@@ -66,88 +89,92 @@ func runWindowsGUI(logger *slog.Logger) error {
 		deviceName = "windows-client"
 	}
 
-	go func() {
-		if hasConfig {
-			state.waitAndConnectSaved(cfgPath)
-		}
-	}()
-
-	_, err := MainWindow{
+	ui := MainWindow{
 		AssignTo:   &state.window,
 		Title:      "OpsRelay Agent",
+		Icon:       windowIcon,
 		Size:       Size{Width: 760, Height: 640},
-		MinSize:    Size{Width: 700, Height: 600},
+		MinSize:    Size{Width: 760, Height: 640},
+		MaxSize:    Size{Width: 760, Height: 640},
 		Font:       Font{Family: "Segoe UI", PointSize: 10},
-		Background: SolidColorBrush{Color: walk.RGB(244, 247, 250)},
+		Background: SolidColorBrush{Color: themeBackground},
 		Layout:     VBox{Margins: Margins{Left: 18, Top: 18, Right: 18, Bottom: 18}, Spacing: 12},
 		Children: []Widget{
 			Composite{
-				Background: SolidColorBrush{Color: walk.RGB(24, 50, 75)},
+				Background: SolidColorBrush{Color: themeSurface},
 				Layout:     VBox{Margins: Margins{Left: 22, Top: 17, Right: 22, Bottom: 17}, Spacing: 5},
-				MinSize:    Size{Height: 94},
+				MinSize:    Size{Width: 700, Height: 94},
 				Children: []Widget{
-					Label{Text: "●   OPSRELAY", Font: Font{Family: "Segoe UI", PointSize: 17, Bold: true}, TextColor: walk.RGB(78, 226, 160)},
-					Label{Text: "Удалённая поддержка с вашего разрешения", TextColor: walk.RGB(221, 234, 244)},
+					Label{Text: "●   OPSRELAY", Font: Font{Family: "Segoe UI", PointSize: 17, Bold: true}, TextColor: themeMint},
+					Label{Text: "Удалённая поддержка с вашего разрешения", TextColor: themeText},
 				},
 			},
 			Composite{
-				Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-				Border:     true,
+				Background: SolidColorBrush{Color: themeSurface},
 				Layout:     VBox{Margins: Margins{Left: 20, Top: 15, Right: 20, Bottom: 15}, Spacing: 7},
-				MinSize:    Size{Height: 134},
+				MinSize:    Size{Width: 700, Height: 134},
 				Children: []Widget{
-					Label{Text: "СОСТОЯНИЕ ПОДКЛЮЧЕНИЯ", Font: Font{Family: "Segoe UI", PointSize: 8, Bold: true}, TextColor: walk.RGB(102, 119, 135)},
-					Composite{Layout: HBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
+					Label{Text: "СОСТОЯНИЕ ПОДКЛЮЧЕНИЯ", Font: Font{Family: "Segoe UI", PointSize: 8, Bold: true}, TextColor: themeMint},
+					Composite{Background: SolidColorBrush{Color: themeSurface}, Layout: HBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
 						Label{AssignTo: &state.statusDot, Text: "●", Font: Font{Family: "Segoe UI", PointSize: 22}, TextColor: statusColor(initialStatus(hasConfig))},
-						Label{AssignTo: &state.statusLabel, Text: friendlyStatus(initialStatus(hasConfig)), Font: Font{Family: "Segoe UI", PointSize: 14, Bold: true}, TextColor: walk.RGB(24, 50, 75)},
+						Label{AssignTo: &state.statusLabel, Text: friendlyStatus(initialStatus(hasConfig)), Font: Font{Family: "Segoe UI", PointSize: 14, Bold: true}, TextColor: themeText},
 					}},
-					Label{AssignTo: &state.activityLabel, Text: statusActivity(initialStatus(hasConfig)), TextColor: walk.RGB(84, 101, 117)},
+					Label{AssignTo: &state.activityLabel, Text: statusActivity(initialStatus(hasConfig)), TextColor: themeMuted, EllipsisMode: EllipsisEnd},
 				},
 			},
 			Composite{
-				Background: SolidColorBrush{Color: walk.RGB(255, 255, 255)},
-				Border:     true,
+				Background: SolidColorBrush{Color: themeSurface},
 				Layout:     VBox{Margins: Margins{Left: 20, Top: 16, Right: 20, Bottom: 16}, Spacing: 10},
+				MinSize:    Size{Width: 700},
 				Children: []Widget{
-					Label{Text: "Настройки устройства", Font: Font{Family: "Segoe UI", PointSize: 12, Bold: true}, TextColor: walk.RGB(24, 50, 75)},
-					Label{Text: "Для первого подключения введите адрес сервера и одноразовый токен.", TextColor: walk.RGB(84, 101, 117)},
-					Composite{Layout: Grid{Columns: 2, MarginsZero: true, Spacing: 12}, Children: []Widget{
-						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
-							Label{Text: "Адрес сервера"},
-							LineEdit{AssignTo: &state.serverEdit, Text: serverURL, OnTextChanged: func() { state.savePrefs(prefsPath) }},
+					Label{Text: "Настройки устройства", Font: Font{Family: "Segoe UI", PointSize: 12, Bold: true}, TextColor: themeText},
+					Label{Text: "Для первого подключения введите адрес сервера и одноразовый токен.", TextColor: themeMuted},
+					Composite{Background: SolidColorBrush{Color: themeSurface}, Layout: Grid{Columns: 2, MarginsZero: true, Spacing: 12}, Children: []Widget{
+						Composite{Background: SolidColorBrush{Color: themeSurface}, Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "Адрес сервера", TextColor: themeText},
+							LineEdit{AssignTo: &state.serverEdit, Text: serverURL, Background: SolidColorBrush{Color: themeInput}, TextColor: themeText, OnTextChanged: func() { state.savePrefs(prefsPath) }},
 						}},
-						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
-							Label{Text: "Имя устройства"},
-							LineEdit{AssignTo: &state.nameEdit, Text: deviceName, OnTextChanged: func() { state.savePrefs(prefsPath) }},
+						Composite{Background: SolidColorBrush{Color: themeSurface}, Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "Имя устройства", TextColor: themeText},
+							LineEdit{AssignTo: &state.nameEdit, Text: deviceName, Background: SolidColorBrush{Color: themeInput}, TextColor: themeText, OnTextChanged: func() { state.savePrefs(prefsPath) }},
 						}},
-						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
-							Label{Text: "Одноразовый токен"},
-							LineEdit{AssignTo: &state.tokenEdit, PasswordMode: true},
+						Composite{Background: SolidColorBrush{Color: themeSurface}, Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "Одноразовый токен", TextColor: themeText},
+							LineEdit{AssignTo: &state.tokenEdit, PasswordMode: true, Background: SolidColorBrush{Color: themeInput}, TextColor: themeText},
 						}},
-						Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
-							Label{Text: "ID устройства"},
-							LineEdit{AssignTo: &state.deviceEdit, Text: deviceID, ReadOnly: true},
+						Composite{Background: SolidColorBrush{Color: themeSurface}, Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
+							Label{Text: "ID устройства", TextColor: themeText},
+							LineEdit{AssignTo: &state.deviceEdit, Text: deviceID, ReadOnly: true, Background: SolidColorBrush{Color: themeInput}, TextColor: themeMuted},
 						}},
 					}},
-					Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-						Label{Text: "Сервер:", TextColor: walk.RGB(84, 101, 117)},
-						Label{AssignTo: &state.serverLabel, Text: "не проверен", TextColor: walk.RGB(84, 101, 117)},
-						PushButton{Text: "Проверить сервер", OnClicked: func() { state.checkServer() }},
+					Composite{Background: SolidColorBrush{Color: themeSurface}, Layout: HBox{MarginsZero: true}, Children: []Widget{
+						Label{Text: "Сервер:", TextColor: themeMuted},
+						Label{AssignTo: &state.serverLabel, Text: "не проверен", TextColor: themeMuted},
+						themedButton(&checkBtn, "Проверить сервер", Size{Width: 188, Height: 34}, themeSurface, themeInput, themeText, true, func() { state.checkServer() }),
 					}},
 				},
 			},
-			Composite{Layout: HBox{MarginsZero: true, Spacing: 10}, Children: []Widget{
-				PushButton{Text: "Зарегистрировать и подключить", AssignTo: &state.connectBtn, MinSize: Size{Width: 230, Height: 38}, Font: Font{Family: "Segoe UI", PointSize: 10, Bold: true}, OnClicked: func() { state.enrollAndConnect(cfgPath) }},
-				PushButton{Text: "Подключить сохранённое", AssignTo: &state.savedBtn, Enabled: hasConfig, MinSize: Size{Width: 210, Height: 38}, OnClicked: func() { state.connectSaved(cfgPath) }},
-				PushButton{Text: "Отключить", AssignTo: &state.stopBtn, Enabled: false, MinSize: Size{Width: 110, Height: 38}, OnClicked: func() { state.stop() }},
+			Composite{Background: SolidColorBrush{Color: themeBackground}, Layout: HBox{MarginsZero: true, Spacing: 10}, Children: []Widget{
+				themedButton(&state.connectBtn, "Зарегистрировать и подключить", Size{Width: 270, Height: 40}, themeBackground, themeMint, themeBackground, true, func() { state.enrollAndConnect(cfgPath) }),
+				themedButton(&state.savedBtn, "Подключить сохранённое", Size{Width: 220, Height: 40}, themeBackground, themeInput, themeText, hasConfig, func() { state.connectSaved(cfgPath) }),
+				themedButton(&state.stopBtn, "Отключить", Size{Width: 130, Height: 40}, themeBackground, themeInput, themeText, false, func() { state.stop() }),
 			}},
-			Label{Text: "Вы можете отключиться в любой момент. Закрытие окна тоже прерывает соединение.", TextColor: walk.RGB(84, 101, 117)},
+			Label{Text: "Вы можете отключиться в любой момент. Закрытие окна тоже прерывает соединение.", TextColor: themeMuted},
 		},
-	}.Run()
+	}
+	if err := ui.Create(); err != nil {
+		return err
+	}
+	for _, button := range []*walk.CustomWidget{checkBtn, state.connectBtn, state.savedBtn, state.stopBtn} {
+		widget := button
+		widget.FocusedChanged().Attach(func() { _ = widget.Invalidate() })
+	}
+	setDarkTitleBar(uintptr(state.window.Handle()))
+	state.window.Run()
 	if state.cancel != nil {
 		state.cancel()
 	}
-	return err
+	return nil
 }
 
 func (state *guiState) enrollAndConnect(cfgPath string) {
@@ -207,6 +234,7 @@ func (state *guiState) finishEnrollment(cfgPath, serverURL, token, name string) 
 		state.deviceEdit.SetText(cfg.DeviceID)
 		state.tokenEdit.SetText("")
 		state.savedBtn.SetEnabled(true)
+		state.savedBtn.SetVisible(true)
 		state.setServerStatus("reachable")
 		state.startAgent(cfg)
 	})
@@ -224,17 +252,6 @@ func (state *guiState) connectSaved(cfgPath string) {
 	state.startAgent(cfg)
 }
 
-func (state *guiState) waitAndConnectSaved(cfgPath string) {
-	for state.window == nil {
-		time.Sleep(50 * time.Millisecond)
-	}
-	state.window.Synchronize(func() {
-		if walk.MsgBox(state.window, "Подключение OpsRelay", "Разрешить подключение этого устройства сейчас? Вы сможете отключить его в любой момент.", walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) == walk.DlgCmdYes {
-			state.connectSaved(cfgPath)
-		}
-	})
-}
-
 func (state *guiState) startAgent(cfg config.Config) {
 	state.stop()
 	state.runID++
@@ -242,8 +259,11 @@ func (state *guiState) startAgent(cfg config.Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 	state.cancel = cancel
 	state.connectBtn.SetEnabled(false)
+	state.connectBtn.SetVisible(false)
 	state.savedBtn.SetEnabled(false)
+	state.savedBtn.SetVisible(false)
 	state.stopBtn.SetEnabled(true)
+	state.stopBtn.SetVisible(true)
 	state.setInputsEnabled(false)
 	state.setStatus("connecting")
 
@@ -329,12 +349,16 @@ func (state *guiState) stop() {
 	}
 	if state.connectBtn != nil {
 		state.connectBtn.SetEnabled(true)
+		state.connectBtn.SetVisible(true)
 	}
 	if state.savedBtn != nil {
-		state.savedBtn.SetEnabled(state.deviceEdit != nil && state.deviceEdit.Text() != unregisteredDeviceID)
+		hasSaved := state.deviceEdit != nil && state.deviceEdit.Text() != unregisteredDeviceID
+		state.savedBtn.SetEnabled(hasSaved)
+		state.savedBtn.SetVisible(hasSaved)
 	}
 	if state.stopBtn != nil {
 		state.stopBtn.SetEnabled(false)
+		state.stopBtn.SetVisible(false)
 	}
 	state.setInputsEnabled(true)
 	state.setStatus("stopped")
@@ -343,7 +367,7 @@ func (state *guiState) stop() {
 func (state *guiState) setInputsEnabled(enabled bool) {
 	for _, field := range []*walk.LineEdit{state.serverEdit, state.nameEdit, state.tokenEdit} {
 		if field != nil {
-			field.SetEnabled(enabled)
+			field.SetReadOnly(!enabled)
 		}
 	}
 }
@@ -357,6 +381,8 @@ func (state *guiState) setStatus(status string) {
 		state.statusDot.SetTextColor(statusColor(status))
 		if state.activityLabel != nil {
 			state.activityLabel.SetText(statusActivity(status))
+			state.activityLabel.SetTextColor(themeMuted)
+			state.activityLabel.SetToolTipText("")
 		}
 	})
 }
@@ -376,7 +402,7 @@ func friendlyStatus(status string) string {
 	case "config save failed":
 		return "Не удалось сохранить настройки"
 	case "saved config found":
-		return "Готово к подключению"
+		return "Подключиться сейчас?"
 	case "not enrolled":
 		return "Нужна регистрация"
 	case "stopped with error":
@@ -389,13 +415,13 @@ func friendlyStatus(status string) string {
 func statusColor(status string) walk.Color {
 	switch status {
 	case "connected", "heartbeat":
-		return walk.RGB(38, 165, 81)
+		return themeMint
 	case "connecting", "enrolling", "reconnecting":
 		return walk.RGB(229, 151, 30)
 	case "enrollment failed", "config save failed", "stopped with error":
 		return walk.RGB(200, 58, 58)
 	default:
-		return walk.RGB(140, 150, 160)
+		return themeMuted
 	}
 }
 
@@ -414,7 +440,7 @@ func statusActivity(status string) string {
 	case "enrollment failed":
 		return "Проверьте адрес сервера и одноразовый токен, затем повторите."
 	case "saved config found":
-		return "Настройки найдены. Разрешите подключение, когда будете готовы."
+		return "Настройки найдены. Нажмите «Подключить сохранённое», когда будете готовы."
 	case "not enrolled":
 		return "Введите адрес сервера и одноразовый токен для первого подключения."
 	default:
@@ -428,7 +454,19 @@ func (state *guiState) setServerStatus(status string) {
 	}
 	state.window.Synchronize(func() {
 		state.serverLabel.SetText(friendlyServerStatus(status))
+		state.serverLabel.SetTextColor(serverStatusColor(status))
 	})
+}
+
+func serverStatusColor(status string) walk.Color {
+	switch status {
+	case "reachable":
+		return themeMint
+	case "not reachable", "connection lost", "enrollment failed":
+		return walk.RGB(255, 139, 139)
+	default:
+		return themeMuted
+	}
 }
 
 func friendlyServerStatus(status string) string {
@@ -451,11 +489,13 @@ func friendlyServerStatus(status string) string {
 }
 
 func (state *guiState) showError(message string) {
-	if state.window == nil {
+	if state.window == nil || state.activityLabel == nil {
 		return
 	}
 	state.window.Synchronize(func() {
-		walk.MsgBox(state.window, "OpsRelay · Ошибка", message, walk.MsgBoxIconError)
+		state.activityLabel.SetText(message)
+		state.activityLabel.SetTextColor(walk.RGB(255, 139, 139))
+		state.activityLabel.SetToolTipText(message)
 	})
 }
 

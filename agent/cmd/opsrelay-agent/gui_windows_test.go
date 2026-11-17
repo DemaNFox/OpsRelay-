@@ -14,10 +14,11 @@ func TestConnectionStatusPresentation(t *testing.T) {
 		label  string
 		color  walk.Color
 	}{
-		{"connected", "Подключено", walk.RGB(38, 165, 81)},
-		{"heartbeat", "Подключено", walk.RGB(38, 165, 81)},
+		{"connected", "Подключено", themeMint},
+		{"heartbeat", "Подключено", themeMint},
 		{"reconnecting", "Связь потеряна — повторяем…", walk.RGB(229, 151, 30)},
-		{"stopped", "Отключено", walk.RGB(140, 150, 160)},
+		{"stopped", "Отключено", themeMuted},
+		{"saved config found", "Подключиться сейчас?", themeMuted},
 		{"enrollment failed", "Ошибка регистрации", walk.RGB(200, 58, 58)},
 	}
 	for _, test := range tests {
